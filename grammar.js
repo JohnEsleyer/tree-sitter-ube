@@ -9,10 +9,12 @@ module.exports = grammar({
   word: $ => $.identifier,
 
   conflicts: $ => [
+    [$.return_statement],
     [$.type_arguments, $.index_expression],
     [$._type, $._expression],
     [$.call_expression, $.generic_type],
     [$.struct_initializer, $._expression],
+    [$.spawn_statement, $._expression],
   ],
 
   rules: {
@@ -227,7 +229,6 @@ module.exports = grammar({
       $.for_statement,
       $.match_statement,
       $.select_statement,
-      $.arena_statement,
       $.unsafe_statement,
       $.defer_statement,
       $.spawn_statement,
@@ -260,10 +261,11 @@ module.exports = grammar({
       field('right', $._expression),
     ),
 
-    return_statement: $ => seq(
+    // prec.right ensures greedy capture of returned expressions
+    return_statement: $ => prec.right(seq(
       'return',
       optional($._expression),
-    ),
+    )),
 
     if_statement: $ => seq(
       'if',
@@ -306,7 +308,7 @@ module.exports = grammar({
     match_arm: $ => seq(
       field('pattern', $.match_pattern),
       '=>',
-      field('body', choice($.block, $._statement)),
+      field('body', $._statement),
     ),
 
     match_pattern: $ => seq(
@@ -343,11 +345,6 @@ module.exports = grammar({
       field('body', $.block),
     ),
 
-    arena_statement: $ => seq(
-      'arena',
-      field('body', $.block),
-    ),
-
     unsafe_statement: $ => seq(
       'unsafe',
       field('body', $.block),
@@ -358,10 +355,10 @@ module.exports = grammar({
       field('body', $._expression),
     ),
 
-    spawn_statement: $ => seq(
-      'spawn',
-      field('call', $.call_expression),
-    ),
+    spawn_statement: $ => prec.right(seq(
+          'spawn',
+          field('call', $.call_expression),
+        )),
 
     loop_control_statement: $ => choice(
       'break',
@@ -401,8 +398,8 @@ module.exports = grammar({
     ),
 
     arena_expression: $ => seq(
-      'arena',
-      $.block,
+          'arena',
+          field('body', $.block),
     ),
 
     number_literal: $ => token(choice(
@@ -496,11 +493,11 @@ module.exports = grammar({
       ']',
     )),
 
-    range_expression: $ => prec(5, seq(
-      field('start', $._expression),
-      '..',
-      field('end', $._expression),
-    )),
+    range_expression: $ => prec.left(5, seq(
+          field('start', $._expression),
+          '..',
+          field('end', $._expression),
+        )),
 
     struct_initializer: $ => prec(13, seq(
       field('type', choice($.type_identifier, $.generic_type)),
@@ -548,7 +545,7 @@ module.exports = grammar({
     )),
 
     unary_expression: $ => prec(12, seq(
-      field('operator', choice('-', '!', '~', '*', '&', 'mut')),
+      field('operator', choice('-', '!', '~', '*', '&')),
       field('operand', $._expression),
     )),
 
